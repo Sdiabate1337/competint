@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Redis for BullMQ
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # PostgreSQL (optional - use this if not using Supabase managed)
+  # postgres:
+  #   image: pgvector/pgvector:pg16
+  #   environment:
+  #     POSTGRES_DB: compet_int
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+
+  # n8n for workflow automation (optional for MVP)
+  # n8n:
+  #   image: n8nio/n8n:latest
+  #   ports:
+  #     - "5678:5678"
+  #   environment:
+  #     - N8N_BASIC_AUTH_ACTIVE=true
+  #     - N8N_BASIC_AUTH_USER=admin
+  #     - N8N_BASIC_AUTH_PASSWORD=admin
+  #     - WEBHOOK_URL=http://localhost:5678/
+  #   volumes:
+  #     - n8n_data:/home/node/.n8n
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  redis_data:
+  # postgres_data:
+  # n8n_data:
