@@ -1,4 +1,4 @@
-import { Process, Processor } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -8,7 +8,7 @@ import { ScoringService } from './services/scoring.service';
 import { CreateDiscoveryRunDto } from './dto/create-discovery-run.dto';
 
 @Processor('discovery')
-export class DiscoveryProcessor {
+export class DiscoveryProcessor extends WorkerHost {
     private readonly logger = new Logger(DiscoveryProcessor.name);
 
     constructor(
@@ -16,10 +16,17 @@ export class DiscoveryProcessor {
         private readonly extractionService: ExtractionService,
         private readonly tavilyService: TavilyService,
         private readonly scoringService: ScoringService,
-    ) { }
+    ) {
+        super();
+    }
 
-    @Process('search')
-    async handleSearch(job: Job<{ runId: string; organizationId: string; params: CreateDiscoveryRunDto }>) {
+    async process(job: Job<{ runId: string; organizationId: string; params: CreateDiscoveryRunDto }>) {
+        if (job.name === 'search') {
+            return this.handleSearch(job);
+        }
+    }
+
+    private async handleSearch(job: Job<{ runId: string; organizationId: string; params: CreateDiscoveryRunDto }>) {
         const { runId, organizationId, params } = job.data;
         this.logger.log(`[DiscoveryProcessor] Processing job for run: ${runId}`);
 
