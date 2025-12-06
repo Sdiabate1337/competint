@@ -1,64 +1,97 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { SupabaseService } from '../supabase/supabase.service';
-
-export interface StartDiscoveryDto {
-    project_id: string;
-    regions: string[];
-    keywords: string[];
-    prompt_template_id?: string;
-}
+import { CreateDiscoveryRunDto } from './dto/create-discovery-run.dto';
 
 @Injectable()
 export class DiscoveryService {
-    constructor(private supabaseService: SupabaseService) { }
+    private readonly logger = new Logger(DiscoveryService.name);
 
-    async startDiscovery(dto: StartDiscoveryDto, organizationId: string) {
-        const supabase = this.supabaseService.getClient();
+    constructor(
+        private readonly supabaseService: SupabaseService,
+        @InjectQueue('discovery') private discoveryQueue: Queue,
+    ) { }
 
-        // Create search run
-        const { data: run, error } = await supabase
+    async createRun(
+        organizationId: string,
+        userId: string,
+        createRunDto: CreateDiscoveryRunDto,
+    ) {
+        // Verify project belongs to org
+        const { data: project } = await this.supabaseService
+            .getClient()
+            .from('projects')
+            .select('id, organization_id')
+            .eq('id', createRunDto.projectId)
+            .single();
+
+        if (!project || project.organization_id !== organizationId) {
+            throw new NotFoundException('Project not found');
+        }
+
+        this.logger.log(`Creating discovery run for project: ${createRunDto.projectId}`);
+
+        // Create run record
+        const { data: run, error } = await this.supabaseService
+            .getClient()
             .from('search_runs')
             .insert({
-                project_id: dto.project_id,
-                regions: dto.regions,
-                keywords: dto.keywords,
-                prompt_template_id: dto.prompt_template_id,
+                project_id: createRunDto.projectId,
                 status: 'pending',
+                regions: createRunDto.regions,
+                keywords: createRunDto.keywords,
+                created_by: userId,
             })
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            this.logger.error('Discovery run creation error:', error);
+            throw new Error(`Failed to create run: ${error.message}`);
+        }
 
-        // TODO: Enqueue jobs to BullMQ for each region
-        // For now, just return the run
+        this.logger.log(`Discovery run created successfully: ${run.id}`);
+
+        // Add job to queue
+        await this.discoveryQueue.add('search', {
+            runId: run.id,
+            organizationId,
+            params: createRunDto,
+        });
+
+        this.logger.log(`Added discovery job to queue for run: ${run.id}`);
 
         return run;
     }
 
-    async getRunStatus(runId: string) {
-        const supabase = this.supabaseService.getClient();
-
-        const { data, error } = await supabase
+    async getRun(runId: string, userId: string) {
+        const { data, error } = await this.supabaseService
+            .getClient()
             .from('search_runs')
             .select('*')
             .eq('id', runId)
             .single();
 
-        if (error) throw error;
+        if (error || !data) {
+            throw new NotFoundException('Run not found');
+        }
+
         return data;
     }
 
-    async listRuns(projectId: string) {
-        const supabase = this.supabaseService.getClient();
-
-        const { data, error } = await supabase
+    async listRuns(projectId: string, userId: string) {
+        const { data, error } = await this.supabaseService
+            .getClient()
             .from('search_runs')
             .select('*')
             .eq('project_id', projectId)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        return data;
+        if (error) {
+            throw new Error(`Failed to fetch runs: ${error.message}`);
+        }
+
+        return data || [];
     }
 }
