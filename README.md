@@ -1,6 +1,8 @@
-# Competitive Intelligence SaaS
+# Simila
 
-**Veille concurrentielle automatisée pour les startups d'Afrique francophone**
+**Veille concurrentielle IA pour les startups d'Afrique francophone**
+
+> Comprenez ce qui marche ailleurs. Exécutez mieux chez vous.
 
 ## 🎯 Objectif
 

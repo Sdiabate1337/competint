@@ -1,12 +1,16 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { CompetitorsService } from './competitors.service';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { EnrichmentService } from '../discovery/services/enrichment.service';
 
 @Controller('competitors')
 @UseGuards(AuthGuard)
 export class CompetitorsController {
-    constructor(private readonly competitorsService: CompetitorsService) { }
+    constructor(
+        private readonly competitorsService: CompetitorsService,
+        private readonly enrichmentService: EnrichmentService,
+    ) { }
 
     @Get()
     async findAll(@Query() filters: any, @CurrentUser() user: any) {
@@ -32,9 +36,12 @@ export class CompetitorsController {
 
     @Get(':id')
     async findOne(@Param('id') id: string, @CurrentUser() user: any) {
-        // TODO: Get org from user's membership
-        const organizationId = 'a75d2ad3-6931-4bb3-9d4e-34af1f25a251';
-        return this.competitorsService.findOne(id, organizationId);
+        // Use findById which doesn't require organization filtering
+        const competitor = await this.competitorsService.findById(id);
+        if (!competitor) {
+            throw new Error('Competitor not found');
+        }
+        return competitor;
     }
 
     @Patch(':id/validate')
@@ -47,11 +54,16 @@ export class CompetitorsController {
         console.log('Status:', body.status);
         console.log('User:', JSON.stringify(user));
 
-        const organizationId = 'a75d2ad3-6931-4bb3-9d4e-34af1f25a251';
         try {
+            // Get the competitor first to find its organization_id
+            const competitor = await this.competitorsService.findById(id);
+            if (!competitor) {
+                throw new Error('Competitor not found');
+            }
+
             return await this.competitorsService.updateValidationStatus(
                 id,
-                organizationId,
+                competitor.organization_id,
                 body.status,
                 user?.id,
             );
@@ -73,5 +85,64 @@ export class CompetitorsController {
             organizationId,
             limit ? parseInt(limit.toString()) : 10,
         );
+    }
+
+    @Post(':id/enrich')
+    async enrichCompetitor(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        console.log(`=== ENRICH COMPETITOR ${id} ===`);
+
+        try {
+            // Get the competitor
+            console.log('Step 1: Finding competitor...');
+            const competitor = await this.competitorsService.findById(id);
+            if (!competitor) {
+                throw new Error('Competitor not found');
+            }
+            console.log('Found competitor:', competitor.name);
+
+            if (!competitor.website) {
+                throw new Error('Competitor has no website to enrich from');
+            }
+
+            console.log(`Step 2: Enriching ${competitor.name} from ${competitor.website}`);
+
+            // Run full enrichment with AI analysis
+            const enrichedData = await this.enrichmentService.enrichCompetitor(
+                competitor.website,
+                {
+                    name: competitor.name,
+                    description: competitor.description,
+                    business_model: competitor.business_model,
+                    industry: competitor.industry,
+                    country: competitor.country,
+                    total_funding: competitor.funding,
+                },
+                {
+                    includeSocialMedia: true,
+                    includeAiAnalysis: true, // Enable AI for SWOT analysis
+                    crawlDepth: 2, // Crawl more pages for better context
+                }
+            );
+
+            console.log('Step 3: Enrichment complete');
+            console.log('Enriched data keys:', Object.keys(enrichedData));
+
+            // Update competitor with enriched data
+            console.log('Step 4: Updating competitor in database...');
+            const updatedCompetitor = await this.competitorsService.updateWithEnrichment(
+                id,
+                enrichedData,
+            );
+
+            console.log('Step 5: Update complete');
+            return updatedCompetitor;
+        } catch (error) {
+            console.error('Enrichment Error:', error.message);
+            console.error('Error stack:', error.stack);
+            throw error;
+        }
     }
 }

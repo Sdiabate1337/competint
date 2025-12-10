@@ -1,8 +1,8 @@
 {
-  "name": "compet-int",
+  "name": "simila",
   "version": "1.0.0",
   "private": true,
-  "description": "Competitive Intelligence SaaS for Francophone African Startups",
+  "description": "Simila - Veille concurrentielle IA pour les startups d'Afrique francophone",
   "workspaces": [
     "frontend",
     "backend",

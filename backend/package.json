@@ -20,13 +20,14 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@mendable/firecrawl-js": "^4.8.3",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@supabase/supabase-js": "^2.86.0",
-    "@tavily/core": "^0.5.13",
+    "@upstash/redis": "^1.35.7",
     "axios": "^1.13.2",
     "bullmq": "^5.65.1",
     "class-transformer": "^0.5.1",
@@ -35,7 +36,8 @@
     "ioredis": "^5.8.2",
     "openai": "^6.9.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

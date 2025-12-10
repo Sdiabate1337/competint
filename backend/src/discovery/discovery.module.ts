@@ -3,8 +3,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { DiscoveryController } from './discovery.controller';
 import { DiscoveryService } from './discovery.service';
 import { DiscoveryProcessor } from './discovery.processor';
-import { TavilyService } from './services/tavily.service';
 import { ScoringService } from './services/scoring.service';
+import { FirecrawlService } from './services/firecrawl.service';
+import { SocialMediaService } from './services/social-media.service';
+import { EnrichmentService } from './services/enrichment.service';
 import { AiModule } from '../ai/ai.module';
 import { SupabaseModule } from '../supabase/supabase.module';
 
@@ -20,9 +22,11 @@ import { SupabaseModule } from '../supabase/supabase.module';
     providers: [
         DiscoveryService,
         DiscoveryProcessor,
-        TavilyService,
         ScoringService,
+        FirecrawlService,      // Main search + scraping provider
+        SocialMediaService,
+        EnrichmentService,
     ],
-    exports: [DiscoveryService],
+    exports: [DiscoveryService, EnrichmentService, FirecrawlService],
 })
 export class DiscoveryModule { }

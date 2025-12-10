@@ -57,18 +57,41 @@ export class AiService {
     }
 
     async extractStructuredData(content: string, schema: any): Promise<any> {
-        const systemPrompt = `You are an expert at extracting structured information from web content.
-Extract the following information from the provided content and return it as valid JSON.
-Schema: ${JSON.stringify(schema, null, 2)}
+        const systemPrompt = `You are a competitive intelligence analyst expert at extracting comprehensive company information from web content.
 
-If a field is not found, use null. Be accurate and extract only factual information.`;
+Your task is to extract detailed, accurate information about a company/startup from the provided content.
+
+EXTRACTION GUIDELINES:
+1. Extract ONLY factual information explicitly stated or strongly implied in the content
+2. For funding amounts, convert to USD numbers (e.g., "$50M" → 50000000, "€10 million" → 10000000)
+3. For employee counts, extract the number only (e.g., "51-200 employees" → 100, "~500 staff" → 500)
+4. For founding year, extract just the year as a number (e.g., 2019)
+5. For country, use ISO 2-letter codes (e.g., "Nigeria" → "NG", "Kenya" → "KE", "United States" → "US")
+6. For social links, extract the FULL URL (e.g., "https://twitter.com/companyname")
+7. For strengths/weaknesses, provide specific, actionable insights based on the content
+8. For investors, list specific names of VCs or individuals mentioned
+9. For technologies, list specific tech stack items (languages, frameworks, tools)
+
+IMPORTANT: 
+- Be thorough - extract as much information as possible
+- If information is not found, use null (not empty strings or arrays)
+- Prioritize accuracy over completeness
+- For arrays, include at least 2-3 items when information is available
+
+Schema to fill:
+${JSON.stringify(schema, null, 2)}
+
+Return ONLY valid JSON, no explanations.`;
 
         const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content },
+            { role: 'user', content: `Extract company information from this content:\n\n${content}` },
         ];
 
-        const response = await this.chat(messages, { temperature: 0.3 });
+        const response = await this.chat(messages, { 
+            temperature: 0.2, // Lower temperature for more consistent extraction
+            maxTokens: 2000, // Ensure enough tokens for comprehensive extraction
+        });
 
         try {
             // Clean up markdown code blocks if present (e.g., ```json ... ```)

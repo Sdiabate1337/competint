@@ -45,6 +45,19 @@ export class CompetitorsService {
         }
     }
 
+    async findById(id: string) {
+        const supabase = this.supabaseService.getClient();
+
+        const { data, error } = await supabase
+            .from('competitors')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
     async findOne(id: string, organizationId: string) {
         const supabase = this.supabaseService.getClient();
 
@@ -111,6 +124,83 @@ export class CompetitorsService {
         });
 
         if (error) throw error;
+        return data;
+    }
+
+    async updateWithEnrichment(id: string, enrichedData: any) {
+        const supabase = this.supabaseService.getClient();
+
+        // Map enriched data to database columns
+        const updates: any = {};
+
+        // Basic info
+        if (enrichedData.description) updates.description = enrichedData.description;
+        if (enrichedData.tagline) updates.tagline = enrichedData.tagline;
+        if (enrichedData.value_proposition) updates.value_proposition = enrichedData.value_proposition;
+        if (enrichedData.founding_year) updates.founding_year = enrichedData.founding_year;
+        if (enrichedData.employee_count) updates.employee_count = String(enrichedData.employee_count);
+        if (enrichedData.business_model) updates.business_model = enrichedData.business_model;
+        if (enrichedData.headquarters) updates.headquarters = enrichedData.headquarters;
+
+        // Funding
+        if (enrichedData.total_funding) updates.funding = enrichedData.total_funding;
+        if (enrichedData.funding_stage) updates.funding_stage = enrichedData.funding_stage;
+        if (enrichedData.investors) updates.investors = enrichedData.investors;
+
+        // Products & Market
+        if (enrichedData.technologies) updates.technologies = enrichedData.technologies;
+        if (enrichedData.products_services) updates.products_services = enrichedData.products_services;
+        if (enrichedData.target_market) updates.target_market = enrichedData.target_market;
+        if (enrichedData.pricing_model) updates.pricing_model = enrichedData.pricing_model;
+        if (enrichedData.customers) updates.customers = enrichedData.customers;
+        if (enrichedData.partnerships) updates.partnerships = enrichedData.partnerships;
+
+        // SWOT Analysis from competitive_analysis
+        if (enrichedData.competitive_analysis) {
+            if (enrichedData.competitive_analysis.strengths) {
+                updates.strengths = enrichedData.competitive_analysis.strengths;
+            }
+            if (enrichedData.competitive_analysis.weaknesses) {
+                updates.weaknesses = enrichedData.competitive_analysis.weaknesses;
+            }
+        }
+
+        // Growth signals and risk factors
+        if (enrichedData.growth_signals) updates.growth_signals = enrichedData.growth_signals;
+        if (enrichedData.risk_factors) updates.risk_factors = enrichedData.risk_factors;
+        if (enrichedData.market_positioning) updates.market_positioning = enrichedData.market_positioning;
+
+        // Social links
+        if (enrichedData.social_links && Object.keys(enrichedData.social_links).length > 0) {
+            updates.social_links = enrichedData.social_links;
+        }
+
+        // Enrichment metadata
+        updates.enrichment_date = new Date().toISOString();
+        if (enrichedData.confidence_score) updates.confidence_score = enrichedData.confidence_score;
+        if (enrichedData.data_completeness) updates.data_completeness = enrichedData.data_completeness;
+        if (enrichedData.data_sources) updates.data_sources = enrichedData.data_sources;
+
+        console.log('Updating competitor with:', JSON.stringify(updates, null, 2));
+
+        // Only update if we have something to update
+        if (Object.keys(updates).length === 0) {
+            console.log('No updates to apply, returning current competitor');
+            return await this.findById(id);
+        }
+
+        const { data, error } = await supabase
+            .from('competitors')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating competitor:', error);
+            throw error;
+        }
+        
         return data;
     }
 }
