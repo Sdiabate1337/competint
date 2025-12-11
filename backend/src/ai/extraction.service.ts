@@ -244,4 +244,57 @@ export class ExtractionService {
             throw error;
         }
     }
+
+    /**
+     * BATCH EXTRACTION - Un seul appel AI pour extraire plusieurs competitors
+     * Optimisé pour réduire les coûts API
+     */
+    async extractBatch(prompt: string): Promise<CompetitorData[]> {
+        try {
+            this.logger.log('Starting batch extraction...');
+            
+            const response = await this.aiService.chat([
+                { 
+                    role: 'system', 
+                    content: `You are a competitive intelligence analyst. Extract company data accurately.
+Return ONLY a valid JSON array of company objects. No explanations, no markdown.
+If a field is unknown, use null. Skip articles, lists, or non-company pages.` 
+                },
+                { role: 'user', content: prompt },
+            ], { 
+                temperature: 0.2,
+                maxTokens: 4000,
+            });
+
+            // Parse JSON from response
+            const content = response.content?.trim() || '';
+            
+            this.logger.log(`AI response length: ${content.length} chars`);
+            this.logger.debug(`AI response preview: ${content.substring(0, 500)}`);
+            
+            // Find JSON array in response
+            const jsonStart = content.indexOf('[');
+            const jsonEnd = content.lastIndexOf(']');
+            
+            if (jsonStart === -1 || jsonEnd === -1) {
+                this.logger.warn(`No JSON array found in batch response. Content: ${content.substring(0, 200)}`);
+                return [];
+            }
+
+            const jsonStr = content.substring(jsonStart, jsonEnd + 1);
+            const parsed = JSON.parse(jsonStr);
+
+            if (!Array.isArray(parsed)) {
+                this.logger.warn('Batch response is not an array');
+                return [];
+            }
+
+            this.logger.log(`Batch extracted ${parsed.length} companies`);
+            return parsed;
+
+        } catch (error) {
+            this.logger.error(`Batch extraction error: ${error.message}`);
+            throw error;
+        }
+    }
 }
